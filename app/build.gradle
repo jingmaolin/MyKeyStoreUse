@@ -13,7 +13,7 @@ android {
 
     signingConfigs {
         release {
-            keyAlias Alias
+            keyAlias 'example_online'
             keyPassword '123456'
             storeFile file('example_online_use.jks')
             storePassword '123456'
