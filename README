@@ -1,0 +1,72 @@
+签名的配置
+
+   背景：
+    一般而言，android的签名需要包名或同时需要包名及SHA1的值。
+    对于前者，我们在开发过程中只要不改动包名则可以在任意电脑上使用；但对于后者，每个开发人员，其电脑上自动生成的debug.keystore中的加密信息SHA1
+的值是不同的，故在第三方验证key值时往往会出错，从而导致第三方应用无法使用的问题。
+   此外，我们可能还会对发布及测试使用的key做相关区分，即上线时使用某一个key，而开发时使用另一个key
+
+   解决：（针对需要SHA1值的类型）
+        ①每一个开发人员都用自己电脑上的签名信息去申请一个对应三方的key（不建议使用）
+        ②将测试用的debug.keystore 与应用发布时的 .jks 签名文件放于module目录下，然后在module的build.gradle中对测试与发布环境使用的签名文件进行配置
+            大致如下：
+            signingConfigs {
+                    release {
+                        keyAlias 'example_online'
+                        keyPassword '123456'
+                        storeFile file('example_online_use.jks')
+                        storePassword '123456'
+                    }
+                    debug {
+                        storeFile file('debug.keystore')
+                    }
+                }
+
+            android{
+              buildTypes {
+                release {
+                    minifyEnabled false
+                    proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+                    signingConfig signingConfigs.release
+                    debuggable false
+                }
+
+                debug {
+                    debuggable true
+                    signingConfig signingConfigs.debug
+                }
+              }
+            }
+
+    注意：为了防止起签名文件及密码上传到公共仓库而被他人使用，可以将keyAlias、keyPassword等信息放于gradle.properties文件中，并在.gitignore中
+        配置不传gradle.properties文件
+
+
+    备注：
+    查询签名文件中SHA1值的方法： 先在dos窗口中将目录位置更改为当前签名文件所属目录，然后输入： keytool -list -v -keystore debug.keystore
+    打印当前使用签名文件中的SHA1值的方法：
+     public static String sHA1(Context context) {
+            try {
+                PackageInfo info = context.getPackageManager().getPackageInfo(
+                        context.getPackageName(), PackageManager.GET_SIGNATURES);
+
+                byte[] cert = info.signatures[0].toByteArray();
+
+                MessageDigest md = MessageDigest.getInstance("SHA1");
+                byte[] publicKey = md.digest(cert);
+                StringBuffer hexString = new StringBuffer();
+                for (int i = 0; i < publicKey.length; i++) {
+                    String appendString = Integer.toHexString(publicKey[i] & 0xFF).toUpperCase(Locale.US);
+                    if (appendString.length() == 1)
+                        hexString.append("0");
+                    hexString.append(appendString);
+                    hexString.append(":");
+                }
+                return hexString.toString();
+            } catch (PackageManager.NameNotFoundException e) {
+                e.printStackTrace();
+            } catch (NoSuchAlgorithmException e) {
+                e.printStackTrace();
+            }
+            return null;
+        }
